@@ -68,7 +68,7 @@
           </svg>
           <p class="text-gray-600 font-medium" id="dropText">Arrastra tu archivo .m4a aquí</p>
           <p class="text-gray-400 text-sm mt-1">o</p>
-          <label for="fileInput" class="inline-block mt-2 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors text-sm">
+          <label for="fileInput" id="fileLabel" class="inline-block mt-2 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors text-sm">
             Seleccionar archivo
           </label>
           <input type="file" id="fileInput" accept=".m4a" class="hidden">
@@ -224,7 +224,12 @@
         if (files.length > 0) validateAndShow(files[0]);
       });
 
-      dropZone.addEventListener('click', function () {
+      document.getElementById('fileLabel').addEventListener('click', function (e) {
+        e.stopPropagation();
+      });
+
+      dropZone.addEventListener('click', function (e) {
+        if (e.target.closest('label')) return;
         fileInput.click();
       });
 
@@ -257,10 +262,15 @@
         .then(async function (response) {
           progressBar.style.width = '90%';
           if (!response.ok) {
-            const data = await response.json().catch(function () {
-              return { error: 'Error inesperado del servidor' };
-            });
-            throw new Error(data.error || 'Error en la conversión');
+            var msg;
+            try {
+              var data = await response.json();
+              msg = data.error;
+            } catch (_) {
+              var text = await response.text().catch(function () { return ''; });
+              msg = text || ('Error del servidor (código ' + response.status + ')');
+            }
+            throw new Error(msg || 'Error en la conversión');
           }
           const blob = await response.blob();
           progressBar.style.width = '100%';

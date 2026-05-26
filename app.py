@@ -7,6 +7,12 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request, send_file
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": "El archivo excede el límite de 50 MB"}), 413
 
 BASE_DIR = Path(__file__).parent
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -45,12 +51,17 @@ def convert():
             "ffmpeg",
             "-i", str(input_path),
             "-codec:a", "libmp3lame",
-            "-b:a", "320k",
+            "-qscale:a", "0",
             "-y",
             str(output_path),
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        except subprocess.TimeoutExpired:
+            return jsonify({
+                "error": "La conversión tomó demasiado tiempo. Prueba con un archivo más corto o de menor calidad."
+            }), 504
 
         if result.returncode != 0:
             return jsonify({
